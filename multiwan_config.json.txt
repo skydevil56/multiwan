@@ -1,0 +1,61 @@
+{
+    "global": {
+            "track_ip_addresses": [
+                "8.8.8.8",
+                "4.4.4.4"
+            ],
+        "restore_to_active_high_prio_link": false,
+        "quantity_of_reachable_ip_addresses": 1,
+        "icmp_interval": 1,
+        "icmp_quantity_to_down_link": 1,
+        "icmp_quantity_to_up_link": 1
+    },
+    "links": [
+        {
+            "enabled": true,
+            "description": "to_Rostelekom",
+            "iface_name": "eth0",
+            "vrrp_cluster_ip_address": "1.1.1.10",
+            "next_hop_ip_address": "1.1.1.1",
+            "priority": 100,
+            "track_ip_addresses": [
+                "8.8.8.8",
+                "8.8.4.4"
+            ],
+            "quantity_of_reachable_ip_addresses": 1,
+            "restore_to_active_high_prio_link": false,
+            "icmp_interval": 12
+        },
+        {
+            "enabled": true,
+            "description": "to_Akado",
+            "iface_name": "eth1",
+            "next_hop_ip_address": "2.2.2.1",
+            "vrrp_cluster_ip_address": "2.2.2.10",
+            "priority": 10,
+            "icmp_quantity_to_down_link": 100
+        },
+        {
+            "enabled": false,
+            "description": "to_MTS_4G",
+            "iface_name": "eth1",
+            "next_hop_ip_address": "3.2223.3.1",
+            "priority": 30,
+            "track_ip_addresses": [
+                "8.8.8.8",
+                "8.8.4.4" 
+            ]
+        },
+        {
+            "enabled": false,
+            "description": "to_Volgatelecom",
+            "iface_name": "eth4.100",
+            "next_hop_ip_address": "4.4.4.1",
+            "priority": 10,
+            "track_ip_addresses": [
+                "8.8.8.8",
+                "8.8.4.4" 
+            ]
+        }
+    ]    
+}
