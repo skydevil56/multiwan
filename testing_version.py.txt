@@ -40,7 +40,7 @@ links_status = {}
 threads = []
 
 shutdown_event = threading.Event()
-lock_for_links_status = threading.Lock()
+lock_for_links_status = threading.RLock()
 
 with lock_for_links_status:
     for link in links:
@@ -52,16 +52,18 @@ with lock_for_links_status:
 # ip route add default via 172.16.16.1 table 101
 
 def get_prio_of_iface (iface):
-    for link in links:
-        if iface == link.get('iface'):
-            return link.get('prio')
+    with lock_for_links_status:
+        for link in links:
+            if iface == link.get('iface'):
+                return link.get('prio')
     
     return None        
 
 def get_link_by_iface (iface):
-    for link in links:
-        if iface == link.get('iface'):
-            return link
+    with lock_for_links_status:
+        for link in links:
+            if iface == link.get('iface'):
+                return link
     
     return None     
     
@@ -131,7 +133,6 @@ def ip_routes_mgr (action, routes, iface, table_id):
 
     for route in routes:
         cmd = "ip route %s %s via %s table %s" % (action, route, nexthop, table_id)
-        print cmd
         proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         (stout, sterr) = proc.communicate()
         rc = proc.returncode
@@ -140,7 +141,6 @@ def ip_routes_mgr (action, routes, iface, table_id):
             print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
             return 1
 
-  
     return 0    
     
 def do_ping (iface, host):
@@ -243,9 +243,7 @@ def signal_handler (signal, frame):
     
     if current_iface is not None:
         print 'Deleting routes via %s interface' % (current_iface)
-        link = get_link_by_iface(current_iface)
-        for route in routes:
-            ip_route_mgr('del', route, link.get('nexthop'), 'main')
+        ip_routes_mgr('del', routes, current_iface, 'main')
     
     print 'Exit'
     sys.exit(0)
@@ -271,9 +269,8 @@ while True:
             all_ifaces_are_in_fail_status = True
             if current_iface is not None:
                 print 'Deleting routes via %s interface' % (current_iface)
-                link = get_link_by_iface(current_iface)
-                for route in routes:
-                    ip_route_mgr('del', route, link.get('nexthop'), 'main')
+                ip_routes_mgr('del', routes, current_iface, 'main')
+            
             current_iface = None
                 
         for iface in links_status.keys():
@@ -285,18 +282,14 @@ while True:
                         previous_iface = current_iface
                         
                         if previous_iface is not None:
-                            link = get_link_by_iface(previous_iface)
                             print 'Deleting routes via %s interface' % (previous_iface)
-                            for route in routes:
-                                ip_route_mgr('del', route, link.get('nexthop'), 'main')
+                            ip_routes_mgr('del', routes, current_iface, 'main')
                         
                         print 'Setting routes via %s interface' % (active_iface_with_max_prio)
-                        link = get_link_by_iface(active_iface_with_max_prio)
-                        for route in routes:
-                            ip_route_mgr('add', route, link.get('nexthop'), 'main')
+                        ip_routes_mgr('add', routes, active_iface_with_max_prio, 'main')
                         current_iface = active_iface_with_max_prio
                     
-                    if current_iface == active_iface_with_max_prio and current_iface is not None:
+                    if current_iface is not None:
                         ip_routes_mgr('add', routes, current_iface, 'main')
                     
     time.sleep(1)
