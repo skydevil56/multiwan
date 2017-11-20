@@ -4,23 +4,23 @@ num_attempts_to_switch_link_in_fail_state = 5
 num_attempts_to_switch_link_in_active_state = 3
 icmp_interval = 3
 
-routes = ["default", "192.168.1.0/24", "1.1.1.1/32"]
+routes = ['default', '192.168.1.0/24', '1.1.1.1/32']
 
-main_iface = "eth0" 
-main_nexthop = "172.16.15.1"
-main_source = "172.16.15.22" 
+main_iface = 'eth0'
+main_nexthop = '172.16.15.1'
+main_source = '172.16.15.22' 
 main_prio = 100 
 main_track_ip = ['172.16.104.1', '172.16.103.1', '172.16.103.2']
 main_enable = True
-main_desc = "RTK"
+main_desc = 'RTK'
 
-back_iface = "eth1" 
-back_nexthop = "172.16.16.1"
-back_source = "172.16.16.22" 
+back_iface = 'eth1'
+back_nexthop = '172.16.16.1'
+back_source = '172.16.16.23'
 back_prio = 50 
 back_track_ip = ['172.16.104.1', '172.17.10.100']
 back_enable = True
-back_desc = "Okado"
+back_desc = 'Okado'
 
 import threading
 import subprocess as sp
@@ -52,18 +52,16 @@ with lock_for_links_status:
 # ip route add default via 172.16.16.1 table 101
 
 def get_prio_of_iface (iface):
-    with lock_for_links_status:
-        for link in links:
-            if iface == link.get('iface'):
-                return link.get('prio')
+    for link in links:
+        if iface == link.get('iface'):
+            return link.get('prio')
     
     return None        
 
 def get_link_by_iface (iface):
-    with lock_for_links_status:
-        for link in links:
-            if iface == link.get('iface'):
-                return link
+    for link in links:
+        if iface == link.get('iface'):
+            return link
     
     return None     
     
@@ -77,42 +75,16 @@ def ip_rule_mgr (action, out_iface, table_id):
     
     # example: ip rule add from all iif lo oif eth0 lookup 100
     
-    cmd = "ip rule %s from all iif lo oif %s lookup %s" % (action, out_iface, table_id)
+    cmd = 'ip rule %s from all iif lo oif %s lookup %s' % (action, out_iface, table_id)
     proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-    (stout, sterr) = proc.communicate()
+    (stdout, stderr) = proc.communicate()
     rc = proc.returncode
     
     if rc != 0 and rc != 254:
-        print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
+        print 'ERROR: try run: %s, returncode = %s, stdout: %s, stderr: %s' % (cmd, rc, stdout, stderr)
         return 1
     
     return 0
-    
-def ip_route_mgr (action, route, nexthop, table_id):
-    # if action == "add" - this function add ip route via 
-    # nexthop to specific route table (table_id)
-    # if if action == "del" - this function delete ip route
-    
-    # if syntax of ip route command is invalid - returncode = 255
-    # if there was an attempt to delete a nonexistent ip route - returncode = 2
-    # if there was an attempt to add a existent ip route - returncode = 2
-    
-    # example: ip route add default via 172.16.15.1 table 100
-    
-    if action == "del" and nexthop == None:
-        cmd = "ip route %s %s table %s" % (action, route, table_id)
-    else:
-        cmd = "ip route %s %s via %s table %s" % (action, route, nexthop, table_id)
-    
-    proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-    (stout, sterr) = proc.communicate()
-    rc = proc.returncode
-
-    if rc != 0 and rc != 2:
-        print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
-        return 1
-    
-    return 0 
 
 def ip_routes_mgr (action, routes, iface, table_id):
     # if action == "add" - this function add ip route via
@@ -132,48 +104,43 @@ def ip_routes_mgr (action, routes, iface, table_id):
         routes = [routes] # if variable is string (one route for add/del) - create list from string for iterate over it
 
     for route in routes:
-        cmd = "ip route %s %s via %s table %s" % (action, route, nexthop, table_id)
+        cmd = 'ip route %s %s via %s table %s' % (action, route, nexthop, table_id)
         proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        (stout, sterr) = proc.communicate()
+        (stdout, stderr) = proc.communicate()
         rc = proc.returncode
 
         if rc != 0 and rc != 2:
-            print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
+            print 'ERROR: try run: %s, returncode = %s, stdout: %s, stderr: %s' % (cmd, rc, stdout, stderr)
             return 1
 
     return 0    
+   
+def do_oping (source, iface, host):
     
-def do_ping (iface, host):
-    
-    cmd = "ping -c 1 -I %s -W 1 %s" % (iface, host)
+    cmd = 'oping -Z 0 -c 1 -w 1 -I %s -D %s %s' % (source, iface, host)
     
     proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-    (stout, sterr) = proc.communicate()
-    rc = proc.returncode
+    (stdout, stderr) = proc.communicate()
+    rc = proc.returncode # TODO: if this function was running in thread and at this moment the signal 
+                                    # (SIGTERM/SIGINT) was received - return code may be incorrect
     
-    if rc != 0 and rc != 1:
-        if sterr != "connect: Network is unreachable\n":
-            print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
+    # print 'ERROR: try run: %s, returncode = %s, stdout: %s, stderr: %s' % (cmd, rc, stdout, stderr)
+    
+    return rc
+   
+def do_ping (iface, host):
+    
+    cmd = 'ping -c 1 -I %s -W 1 %s' % (iface, host)
+    
+    proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+    (stdout, stderr) = proc.communicate()
+    rc = proc.returncode # TODO: if this function was running in thread and at this moment the signal 
+                                    # (SIGTERM/SIGINT) was received - return code may be incorrect
+    
+    # print 'ERROR: try run: %s, returncode = %s, stdout: %s, stderr: %s' % (cmd, rc, stdout, stderr)
     
     return rc
 
-def check_and_fix_routes_inconsistency (routes):
-    
-    for route in routes:
-        if route == 'default':
-            route = '8.8.8.8/32' # bacause command 'ip route get default' cannot work
-        
-        cmd = "ip route get %s" % (route)
-    
-        proc = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        (stout, sterr) = proc.communicate()
-        rc = proc.returncode
-        
-        if rc != 0:
-            print "ERROR: try run: %s, returncode = %s, stdout: %s, sterr: %s" % (cmd, rc, stout, sterr)
-            
-    return rc    
-    
 def check_link_status (**link):
     global links_status # dict to store status of links
     status_of_link = None # initial status of link
@@ -184,8 +151,7 @@ def check_link_status (**link):
         count_dead_hosts = 0
         
         ip_rule_mgr('add', link.get('iface'), link.get('prio'))
-        
-        ip_route_mgr('add', 'default', link.get('nexthop'), link.get('prio'))
+        ip_routes_mgr('add', 'default', link.get('iface'), link.get('prio'))
         
         if count_success == num_attempts_to_switch_link_in_active_state:
             print 'Link %s is active' % link.get('iface')
@@ -204,7 +170,8 @@ def check_link_status (**link):
                 print links_status                
             
         for host in link.get('track-host'):
-            rc = do_ping(link.get('iface'), host)
+            #rc = do_ping(link.get('iface'), host)
+            rc = do_oping(link.get('source'), link.get('iface'), host)
             if rc != 0:
                 count_dead_hosts += 1
         
@@ -218,8 +185,7 @@ def check_link_status (**link):
                 count_success += 1
                 count_fails = 0
 
-        ip_route_mgr('del', 'default', link.get('nexthop'), link.get('prio'))
-
+        ip_routes_mgr('del', 'default', link.get('iface'), link.get('prio'))
         ip_rule_mgr('del', link.get('iface'), link.get('prio'))
         
         time.sleep(icmp_interval)
@@ -232,6 +198,7 @@ for link in links:
     t.start()
     threads.append(t)
 
+    
 
 def signal_handler (signal, frame):
     # TODO: this function will execute as many as signals it was received
